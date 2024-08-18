@@ -11,15 +11,11 @@ import org.citrusframework.http.client.HttpClient;
 import org.citrusframework.message.DelegatingPathExpressionProcessor;
 import org.citrusframework.message.MessageProcessor;
 import org.citrusframework.message.MessageProcessorAdapter;
-import org.citrusframework.openapi.generator.sample.OpenApiPetStore.EntityValidationContext;
-import org.citrusframework.openapi.generator.sample.OpenApiPetStore.PetEntityValidationContext.Builder;
-import org.citrusframework.openapi.generator.sample.PetApi.FindPetByStatusActionBuilder;
 import org.citrusframework.validation.DelegatingPayloadVariableExtractor;
 import org.citrusframework.validation.context.DefaultValidationContext;
 import org.citrusframework.validation.context.ValidationContext;
 import org.citrusframework.variable.VariableExtractor;
 import org.citrusframework.variable.VariableExtractorAdapter;
-import org.springframework.http.HttpStatus;
 
 public class OpenApiPetStore {
 
@@ -31,9 +27,9 @@ public class OpenApiPetStore {
         return new GetPetIdRequestActionBuilder();
     }
 
-    public FindPetByStatusActionBuilder findByStatus() {
-        return new PetApi.FindPetByStatusActionBuilder();
-    }
+//    public FindPetsByStatusRequestActionBuilder findByStatus() {
+//        return new FindPetsByStatusRequestActionBuilder();
+//    }
 
     public static class GetPetIdRequestActionBuilder extends HttpClientRequestActionBuilder {
 
@@ -43,17 +39,11 @@ public class OpenApiPetStore {
 
     }
 
-    public GetPetIdResponseActionBuilder receivePetById(HttpStatus status) {
-        return new GetPetIdResponseActionBuilder();
-    }
 
     public GetPetIdResponseActionBuilder200 receivePetById200() {
         return new GetPetIdResponseActionBuilder200();
     }
 
-    public static class GetPetIdResponseActionBuilder extends HttpClientResponseActionBuilder {
-
-    }
 
     // Per configured response
     public static class GetPetIdResponseActionBuilder200 extends HttpClientResponseActionBuilder {

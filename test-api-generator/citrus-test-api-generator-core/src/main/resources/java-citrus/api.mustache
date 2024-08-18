@@ -2,43 +2,63 @@
 
 package {{package}};
 
+import jakarta.validation.constraints.NotNull;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import org.citrusframework.actions.SendMessageAction;
+import org.citrusframework.http.actions.HttpClientRequestActionBuilder.HttpMessageBuilderSupport;
 import org.citrusframework.http.client.HttpClient;
 import org.citrusframework.openapi.OpenApiSpecification;
 import org.citrusframework.openapi.generator.TestApiClientRequestActionBuilder;
-import org.citrusframework.openapi.generator.rest.petstore.model.Pet;
+import org.citrusframework.openapi.generator.TestApiClientResponseActionBuilder;
+import org.citrusframework.openapi.generator.TestApiUtils;
 import org.citrusframework.testapi.GeneratedApi;
+import org.citrusframework.util.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 
-import {{invokerPackage}}.citrus.{{prefix}}AbstractSendAction;
+import {{modelPackage}}.*;
 
 {{>additionalModelTypeAnnotations}}{{>generatedAnnotation}}{{#discriminator}}{{>typeInfoAnnotation}}{{/discriminator}}{{>xmlAnnotation}}
 public class {{classname}} implements GeneratedApi
 {
 
-    public static final {{classname}} INSTANCE = new {{classname}}();
+    {{#authMethods}}
+        {{#isBasicBasic}}
+    @Value("${" + "{{apiEndpoint}}.basic.username:#{null}}")
+    private String basicUsername;
+    @Value("${" + "{{apiEndpoint}}.basic.password:#{null}}")
+    private String basicPassword;
+        {{/isBasicBasic}}
+    {{/authMethods}}
 
-    private HttpClient httpClient
-    private OpenApiSpecification openApiSpecification = null;
+    private HttpClient httpClient;
 
+    private OpenApiSpecification openApiSpecification = OpenApiSpecification.from(
+        {{classname}}.class.getResource("{{prefix}}_openApi.yaml"));
+
+    public {{classname}}(HttpClient httpClient)  {
+        this.httpClient = httpClient;
+    }
 
     public String getApiTitle() {
-    return "{{appName}}";
+        return "{{appName}}";
     }
 
     public String getApiVersion() {
-    return "{{appVersion}}";
+        return "{{appVersion}}";
     }
 
     public String getApiPrefix() {
-    return "{{prefix}}";
+        return "{{prefix}}";
     }
 
-    public static PetApi openApiPetStore(HttpClient httpClient) {
-        return new PetApi();
+    public static {{classname}} openApi{{classname}}(HttpClient httpClient) {
+        return new {{classname}}(httpClient);
     }
 
-    public Map<String,String> getApiInfoExtensions() {
+    public Map<String, String> getApiInfoExtensions() {
         Map<String, String> infoExtensionMap = new HashMap<>();
         {{#infoExtensions}}
             {{#entrySet}}
@@ -50,8 +70,22 @@ public class {{classname}} implements GeneratedApi
 
 {{#operations}}
     {{#operation}}
-    public {{operationIdCamelCase}}ActionBuilder {{operationId}}({{#requiredParams}}{{dataType}} {{paramName}}{{^-last}}, {{/-last}}{{/requiredParams}})   {
-        return new {{operationIdCamelCase}}ActionBuilder({{#requiredParams}}{{paramName}}{{^-last}}, {{/-last}}{{/requiredParams}});
+    public {{operationIdCamelCase}}RequestActionBuilder {{operationId}}({{#requiredNonBodyParams}}{{{dataType}}} {{paramName}}{{^-last}}, {{/-last}}{{/requiredNonBodyParams}})   {
+        {{operationIdCamelCase}}RequestActionBuilder builder =  new {{operationIdCamelCase}}RequestActionBuilder(openApiSpecification{{#requiredNonBodyParams}}, {{paramName}}{{/requiredNonBodyParams}});
+    {{#authMethods}}
+        {{#isBasicBasic}}
+        TestApiUtils.addBasicAuthHeader(basicUsername, basicPassword, builder.getMessageBuilderSupport());
+        {{/isBasicBasic}}
+    {{/authMethods}}
+        return builder;
+    }
+
+    public {{operationIdCamelCase}}ResponseActionBuilder receive{{operationIdCamelCase}}(@NotNull String statusCode)   {
+        return new {{operationIdCamelCase}}ResponseActionBuilder(openApiSpecification, statusCode);
+    }
+
+    public {{operationIdCamelCase}}ResponseActionBuilder receive{{operationIdCamelCase}}(@NotNull HttpStatus statusCode)   {
+        return new {{operationIdCamelCase}}ResponseActionBuilder(openApiSpecification, Integer.toString(statusCode.value()));
     }
     {{^-last}}
 
@@ -59,9 +93,143 @@ public class {{classname}} implements GeneratedApi
     {{/operation}}
 {{/operations}}
 
+{{#authMethods}}
+    {{#isBasicBasic}}
+    private void addBasicAuthHeader(HttpMessageBuilderSupport messageBuilderSupport) {
+        if (!StringUtils.isEmpty(basicUsername) && !StringUtils.isEmpty(basicPassword)) {
+        messageBuilderSupport.header("Authorization",
+            "Basic citrus:encodeBase64(" + basicUsername + ":" + basicPassword + ")");
+        }
+    }
+    {{/isBasicBasic}}
+{{/authMethods}}
+
 {{#operations}}
     {{#operation}}
-    public class {{operationIdCamelCase}}ActionBuilder extends TestApiClientRequestActionBuilder {
+    public static class {{operationIdCamelCase}}RequestActionBuilder extends TestApiClientRequestActionBuilder {
+
+        private static final String METHOD = "{{httpMethod}}";
+
+        private static final String ENDPOINT = "{{path}}";
+
+        private static final String OPERATION_NAME = "{{operationId}}";
+        {{#authMethods}}
+            {{#isBasicBasic}}
+
+        private String basicUsername;
+
+        private String basicPassword;
+            {{/isBasicBasic}}
+            {{#isApiKey}}
+
+        private String apiKey;
+            {{/isApiKey}}
+        {{/authMethods}}
+
+        public {{operationIdCamelCase}}RequestActionBuilder(OpenApiSpecification openApiSpecification {{#requiredNonBodyParams}}, {{{dataType}}} {{paramName}}{{/requiredNonBodyParams}}) {
+            super(openApiSpecification, METHOD, ENDPOINT, OPERATION_NAME);
+            {{#requiredNonBodyParams}}
+            {{#isQueryParam}}
+            queryParameter("{{paramName}}", {{paramName}});
+            {{/isQueryParam}}
+            {{#isPathParam}}
+            pathParameter("{{paramName}}", {{paramName}});
+            {{/isPathParam}}
+            {{#isHeaderParam}}
+            headerParameter("{{paramName}}", {{paramName}});
+            {{/isHeaderParam}}
+            {{#isFormParam}}
+            formParameter("{{paramName}}", {{paramName}});
+            {{/isFormParam}}
+            {{/requiredNonBodyParams}}
+        }
+        {{#requiredNonBodyParams}}
+
+        private {{operationIdCamelCase}}RequestActionBuilder with{{#lambda.titlecase}}{{baseName}}{{/lambda.titlecase}}(String {{paramName}}) {
+            {{#isQueryParam}}
+                queryParameter("{{baseName}}", {{paramName}});
+            {{/isQueryParam}}
+            {{#isPathParam}}
+                pathParameter("{{baseName}}", {{paramName}});
+            {{/isPathParam}}
+            {{#isHeaderParam}}
+                headerParameter("{{baseName}}", {{paramName}});
+            {{/isHeaderParam}}
+            {{#isFormParam}}
+                formParameter("{{baseName}}", {{paramName}});
+            {{/isFormParam}}
+            return this;
+        }
+        {{^-last}}
+
+        {{/-last}}
+        {{/requiredNonBodyParams}}
+        {{#optionalParams}}
+
+            public {{operationIdCamelCase}}RequestActionBuilder with{{#lambda.titlecase}}{{baseName}}{{/lambda.titlecase}}(String {{paramName}}) {
+            {{#isQueryParam}}
+                queryParameter("{{baseName}}", {{paramName}});
+            {{/isQueryParam}}
+            {{#isPathParam}}
+                pathParameter("{{baseName}}", {{paramName}});
+            {{/isPathParam}}
+            {{#isHeaderParam}}
+                headerParameter("{{baseName}}", {{paramName}});
+            {{/isHeaderParam}}
+            {{#isFormParam}}
+                formParameter("{{baseName}}", {{paramName}});
+            {{/isFormParam}}
+            return this;
+            }
+            {{^-last}}
+
+            {{/-last}}
+        {{/optionalParams}}
+    {{#authMethods}}
+        {{#isBasicBasic}}
+
+        public {{operationIdCamelCase}}RequestActionBuilder withBasicAuthUsername(String basicUsername) {
+            this.basicUsername = basicUsername;
+            return this;
+        }
+
+        public {{operationIdCamelCase}}RequestActionBuilder withBasicAuthPassword(String password) {
+            this.basicPassword = password;
+            return this;
+        }
+
+        @Override
+        public SendMessageAction doBuild() {
+            TestApiUtils.addBasicAuthHeader(basicUsername, basicPassword, getMessageBuilderSupport());
+            return super.doBuild();
+        }
+        {{/isBasicBasic}}
+        {{#isBasicBearer}}
+
+        public {{operationIdCamelCase}}RequestActionBuilder withBasicAuthBearer(String bearer) {
+            headerParameter("Authorization", "Bearer " + bearer);
+            return this;
+        }
+        {{/isBasicBearer}}
+        {{#isApiKey}}
+
+        public {{operationIdCamelCase}}RequestActionBuilder withApiKeyAuth(String apiKey) {
+            {{#isKeyInHeader}}
+            headerParameter("{{keyParamName}}", apiKey);
+            {{/isKeyInHeader}}
+            {{#isKeyInQuery}}
+            queryParameter("{{keyParamName}}", apiKey);
+            {{/isKeyInQuery}}
+            {{#isKeyInCookie}}
+            cookieParameter("{{keyParamName}}", apiKey);
+            {{/isKeyInCookie}}
+            return this;
+        }
+        {{/isApiKey}}
+    {{/authMethods}}
+    }
+
+    public static class {{operationIdCamelCase}}ResponseActionBuilder extends TestApiClientResponseActionBuilder {
 
         private static final String METHOD = "{{httpMethod}}";
 
@@ -69,44 +237,10 @@ public class {{classname}} implements GeneratedApi
 
         private static final String OPERATION_NAME = "{{operationId}}";
 
-        public {{operationIdCamelCase}}ActionBuilder({{#requiredParams}}{{dataType}} {{paramName}}{{^-last}}, {{/-last}}{{/requiredParams}}) {
-            super(openApiSpecification, METHOD, ENDPOINT, OPERATION_NAME);
-            {{#requiredParams}}
-            {{#isQueryParam}}
-            queryParam("{{paramName}}", {{paramName}});
-            {{/isQueryParam}}
-            {{#isPathParam}}
-            pathParam("{{paramName}}", {{paramName}});
-            {{/isPathParam}}
-            {{#isHeaderParam}}
-            headerParam("{{paramName}}", {{paramName}});
-            {{/isHeaderParam}}
-            {{#isFormParam}}
-            formParam("{{paramName}}", {{paramName}});
-            {{/isFormParam}}
-            {{/requiredParams}}
+        public {{operationIdCamelCase}}ResponseActionBuilder(OpenApiSpecification openApiSpecification, String statusCode) {
+            super(openApiSpecification, METHOD, ENDPOINT, OPERATION_NAME, statusCode);
         }
 
-        {{#optionalParams}}
-        public {{operationIdCamelCase}}ActionBuilder with{{#lambda.titlecase}}{{baseName}}{{/lambda.titlecase}}(String {{paramName}}) {
-            {{#isQueryParam}}
-                queryParam("{{baseName}}", {{paramName}});
-            {{/isQueryParam}}
-            {{#isPathParam}}
-                pathParam("{{baseName}}", {{paramName}});
-            {{/isPathParam}}
-            {{#isHeaderParam}}
-                headerParam("{{baseName}}", {{paramName}});
-            {{/isHeaderParam}}
-            {{#isFormParam}}
-                formParam("{{baseName}}", {{paramName}});
-            {{/isFormParam}}
-            return this;
-        }
-        {{^-last}}
-
-        {{/-last}}
-        {{/optionalParams}}
     }
     {{^-last}}
 

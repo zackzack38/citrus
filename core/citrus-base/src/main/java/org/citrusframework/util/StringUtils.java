@@ -37,12 +37,30 @@ public class StringUtils {
     }
 
     /**
+     * Helper method checks for null or blank String.
+     * @param str
+     * @return
+     */
+    public static boolean hasNoText(String str) {
+        return !hasText(str);
+    }
+
+    /**
      * String helper checking for isEmpty String and adds null check on given parameter.
      * @param str
      * @return
      */
     public static boolean isEmpty(String str) {
         return str == null || str.isEmpty();
+    }
+
+    /**
+     * String helper checking for isEmpty String and adds null check on given parameter.
+     * @param str
+     * @return
+     */
+    public static boolean isNotEmpty(String str) {
+        return !isEmpty(str);
     }
 
     public static String appendSegmentToUrlPath(String path, String segment) {

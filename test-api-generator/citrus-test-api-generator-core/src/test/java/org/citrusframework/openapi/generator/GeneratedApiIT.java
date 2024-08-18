@@ -19,6 +19,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.assertj.core.api.Assertions;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.citrusframework.Citrus;
 import org.citrusframework.CitrusInstanceManager;
@@ -41,9 +42,9 @@ import org.citrusframework.message.DefaultMessage;
 import org.citrusframework.message.Message;
 import org.citrusframework.messaging.Producer;
 import org.citrusframework.messaging.SelectiveConsumer;
-import org.citrusframework.openapi.generator.rest.multiparttest.request.MultiparttestControllerApi.PostFileRequest;
-import org.citrusframework.openapi.generator.rest.petstore.request.PetApi.AddPetRequest;
-import org.citrusframework.openapi.generator.rest.petstore.request.PetApi.GetPetByIdRequest;
+import org.citrusframework.openapi.generator.rest.multiparttest.request.MultiparttestControllerApi.PostFileRequestActionBuilder;
+import org.citrusframework.openapi.generator.rest.petstore.request.PetApi.AddPetRequestActionBuilder;
+import org.citrusframework.openapi.generator.rest.petstore.request.PetApi.GetPetByIdRequestActionBuilder;
 import org.citrusframework.spi.Resources;
 import org.citrusframework.testapi.ApiActionBuilderCustomizerService;
 import org.citrusframework.testapi.GeneratedApi;
@@ -109,6 +110,16 @@ class GeneratedApiIT {
         assertThatThrownBy(
             () -> executeTest("getPetByIdRequestTest", testContext)).hasCauseExactlyInstanceOf(
             ValidationException.class);
+    }
+
+    @Test
+    void testApiKeyInQuery() {
+        Assertions.fail("implement test for api key in query");
+    }
+
+    @Test
+    void testApiKeyInCookie() {
+        Assertions.fail("implement test for api key in cookie");
     }
 
     @Nested
@@ -188,7 +199,7 @@ class GeneratedApiIT {
         private void sendAndValidateMessage(String testName,
             ArgumentMatcher<Message> messageMatcher) {
             GeneratedApiIT.this.sendAndValidateMessage(testName, messageMatcher,
-                AddPetRequest.class);
+                AddPetRequestActionBuilder.class);
         }
 
     }
@@ -215,7 +226,7 @@ class GeneratedApiIT {
                 return true;
             };
 
-            sendAndValidateMessage("postFileTest", messageMatcher, PostFileRequest.class);
+            sendAndValidateMessage("postFileTest", messageMatcher, PostFileRequestActionBuilder.class);
         }
 
         @Test
@@ -307,7 +318,7 @@ class GeneratedApiIT {
         void testJsonPathExtraction() {
             TestCase testCase = executeTest("jsonPathExtractionTest", testContext);
             TestAction testAction = testCase.getActions().get(0);
-            assertThat(testAction).isInstanceOf(GetPetByIdRequest.class);
+            assertThat(testAction.getName()).isEqualTo("send-GetPetById");
 
             assertThat(testContext.getVariable("name")).isEqualTo("Snoopy");
             assertThat(testContext.getVariable("id")).isEqualTo("12");
@@ -318,7 +329,7 @@ class GeneratedApiIT {
             TestCase testCase = executeTest("getPetByIdRequestTest", testContext);
 
             TestAction testAction = testCase.getActions().get(0);
-            assertThat(testAction).isInstanceOf(GetPetByIdRequest.class);
+            assertThat(testAction.getName()).isEqualTo("send-GetPetById");
 
             ArgumentMatcher<Message> messageMatcher = message -> {
                 HttpMessage httpMessage = (HttpMessage) message;
@@ -336,7 +347,7 @@ class GeneratedApiIT {
             TestCase testCase = executeTest("getPetByIdRequestTest", testContext);
 
             TestAction testAction = testCase.getActions().get(0);
-            assertThat(testAction).isInstanceOf(GetPetByIdRequest.class);
+            assertThat(testAction.getName()).isEqualTo("send-GetPetById");
 
             ArgumentMatcher<Message> messageMatcher = message -> {
                 HttpMessage httpMessage = (HttpMessage) message;
@@ -352,7 +363,7 @@ class GeneratedApiIT {
         void testRequestPath() {
             TestCase testCase = executeTest("getPetByIdRequestTest", testContext);
             TestAction testAction = testCase.getActions().get(0);
-            assertThat(testAction).isInstanceOf(GetPetByIdRequest.class);
+            assertThat(testAction.getName()).isEqualTo("send-GetPetById");
 
             ArgumentMatcher<Message> messageMatcher = message -> {
                 HttpMessage httpMessage = (HttpMessage) message;
@@ -367,7 +378,7 @@ class GeneratedApiIT {
         void testCookies() {
             TestCase testCase = executeTest("getPetByIdRequestTest", testContext);
             TestAction testAction = testCase.getActions().get(0);
-            assertThat(testAction).isInstanceOf(GetPetByIdRequest.class);
+            assertThat(testAction.getName()).isEqualTo("send-GetPetById");
 
             ArgumentMatcher<Message> messageMatcher = message -> {
                 HttpMessage httpMessage = (HttpMessage) message;
@@ -386,13 +397,14 @@ class GeneratedApiIT {
         @Test
         void testJsonPathValidation() {
             TestCase testCase = executeTest("jsonPathValidationTest", testContext);
-            assertTestActionType(testCase, GetPetByIdRequest.class);
+
+            assertTestAction(testCase, GetPetByIdRequestActionBuilder.class);
         }
 
         @Test
         void scriptValidationFailureTest() {
             TestCase testCase = executeTest("scriptValidationTest", testContext);
-            assertTestActionType(testCase, GetPetByIdRequest.class);
+            assertTestAction(testCase, GetPetByIdRequestActionBuilder.class);
         }
 
         @Test
@@ -417,7 +429,7 @@ class GeneratedApiIT {
 
             TestCase testCase = executeTest("jsonDeactivatedSchemaValidationTest", testContext);
 
-            assertTestActionType(testCase, GetPetByIdRequest.class);
+            assertTestAction(testCase, GetPetByIdRequestActionBuilder.class);
 
             // Assert that schema validation was called
             Mockito.verifyNoInteractions(testSchema);
@@ -430,7 +442,7 @@ class GeneratedApiIT {
 
             TestCase testCase = executeTest("defaultOas3SchemaValidationTest", testContext);
 
-            assertTestActionType(testCase, GetPetByIdRequest.class);
+            assertTestAction(testCase, GetPetByIdRequestActionBuilder.class);
 
             // Assert that schema validation was called
             verify(testSchema).getSchema();
@@ -446,7 +458,7 @@ class GeneratedApiIT {
 
             TestCase testCase = executeTest("jsonSchemaValidationTest", testContext);
 
-            assertTestActionType(testCase, GetPetByIdRequest.class);
+            assertTestAction(testCase, GetPetByIdRequestActionBuilder.class);
 
             // Assert that schema validation was called
             verify(testSchema).getSchema();
@@ -525,22 +537,29 @@ class GeneratedApiIT {
      * Test the send message using the given matcher
      */
     private void sendAndValidateMessage(String testName, ArgumentMatcher<Message> messageMatcher,
-        Class<?> apiClass) {
+        Class<?> builderClass) {
 
         TestCase testCase = executeTest(testName, testContext);
-        assertTestActionType(testCase, apiClass);
+        assertTestAction(testCase, builderClass);
 
         verify(producerMock).send(ArgumentMatchers.argThat(messageMatcher), eq(testContext));
     }
 
     /**
-     * Assert that an action of type 'apiClass' is contained in the list of test actions
+     * Assert that an action of type 'builderClass' is contained in the list of test actions
      */
-    private void assertTestActionType(TestCase testCase, Class<?> apiClass) {
+    private void assertTestAction(TestCase testCase, Class<?> builderClass) {
+
+        String className = builderClass.getSimpleName();
+        if (className.endsWith("ActionBuilder")) {
+            className = className.substring(0, className.length()-"ActionBuilder".length());
+        }
+
+        String finalClassName = className;
         TestAction testAction = testCase
             .getActions()
             .stream()
-            .filter(action -> apiClass.isAssignableFrom(action.getClass()))
+            .filter(action -> finalClassName.equals(action.getName()))
             .findAny()
             .orElse(null);
         assertThat(testAction).isNotNull();

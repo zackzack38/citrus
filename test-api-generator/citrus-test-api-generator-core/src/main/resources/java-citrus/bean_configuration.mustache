@@ -4,11 +4,13 @@ package {{invokerPackage}}.spring;
 
 import static org.springframework.beans.factory.config.BeanDefinition.SCOPE_PROTOTYPE;
 
+import org.citrusframework.http.client.HttpClient;
 {{#apiInfo}}
 {{#apis}}
 import {{package}}.{{classname}};
 {{/apis}}
 {{/apiInfo}}
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
@@ -18,14 +20,19 @@ import org.springframework.context.annotation.Scope;
 public class {{prefix}}BeanConfiguration {
 {{#apiInfo}}
     {{#apis}}
+    @Bean(name="{{classname}}")
+    @Scope(SCOPE_PROTOTYPE)
+    public {{classname}} openApi{{classname}}(@Qualifier("{{apiEndpoint}}") HttpClient httpClient) {
+        return new {{classname}}(httpClient);
+    }
         {{#operations}}
             {{#operation}}
 
-    @Bean
-    @Scope(SCOPE_PROTOTYPE)
-    public {{classname}}.{{operationIdCamelCase}}Request {{operationId}}Request() {
-        return new {{classname}}.{{operationIdCamelCase}}Request();
-    }
+//    @Bean
+//    @Scope(SCOPE_PROTOTYPE)
+//    public {{classname}}.{{operationIdCamelCase}}Request {{operationId}}Request() {
+//        return new {{classname}}.{{operationIdCamelCase}}Request();
+//    }
             {{/operation}}
         {{/operations}}
     {{/apis}}

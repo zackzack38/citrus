@@ -1,7 +1,7 @@
 package org.citrusframework.openapi.generator;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.citrusframework.openapi.generator.JavaCitrusCodegen.CODEGEN_NAME;
+import static org.citrusframework.openapi.generator.CitrusJavaCodegen.CODEGEN_NAME;
 
 import java.io.File;
 import java.io.IOException;
@@ -60,13 +60,13 @@ class JavaCitrusCodegenTest {
 
     @Test
     void retrieveGeneratorBsSpi() {
-        JavaCitrusCodegen codegen = (JavaCitrusCodegen) CodegenConfigLoader.forName("java-citrus");
+        CitrusJavaCodegen codegen = (CitrusJavaCodegen) CodegenConfigLoader.forName("java-citrus");
         assertThat(codegen).isNotNull();
     }
 
     @Test
     void arePredefinedValuesNotEmptyTest() {
-        JavaCitrusCodegen codegen = new JavaCitrusCodegen();
+        CitrusJavaCodegen codegen = new CitrusJavaCodegen();
 
         assertThat(codegen.getName()).isEqualTo(CODEGEN_NAME);
         assertThat(codegen.getHelp()).isNotEmpty();
@@ -88,14 +88,14 @@ class JavaCitrusCodegenTest {
         final String generatedSchemaFolder = "generatedResourceFolder";
 
         Map<String, Object> properties = new HashMap<>();
-        properties.put(JavaCitrusCodegen.API_ENDPOINT, httpClient);
-        properties.put(JavaCitrusCodegen.GENERATED_SCHEMA_FOLDER, generatedSchemaFolder);
-        properties.put(JavaCitrusCodegen.HTTP_PATH_PREFIX, httpPathPrefix);
-        properties.put(JavaCitrusCodegen.OPENAPI_SCHEMA, openapiSchema);
-        properties.put(JavaCitrusCodegen.PREFIX, prefix);
-        properties.put(JavaCitrusCodegen.TARGET_XMLNS_NAMESPACE, targetXmlnsNamespace);
+        properties.put(CitrusJavaCodegen.API_ENDPOINT, httpClient);
+        properties.put(CitrusJavaCodegen.GENERATED_SCHEMA_FOLDER, generatedSchemaFolder);
+        properties.put(CitrusJavaCodegen.HTTP_PATH_PREFIX, httpPathPrefix);
+        properties.put(CitrusJavaCodegen.OPENAPI_SCHEMA, openapiSchema);
+        properties.put(CitrusJavaCodegen.PREFIX, prefix);
+        properties.put(CitrusJavaCodegen.TARGET_XMLNS_NAMESPACE, targetXmlnsNamespace);
 
-        JavaCitrusCodegen codegen = new JavaCitrusCodegen();
+        CitrusJavaCodegen codegen = new CitrusJavaCodegen();
         codegen.additionalProperties().putAll(properties);
         codegen.processOpts();
 

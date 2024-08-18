@@ -19,43 +19,153 @@
            targetNamespace="{{{targetXmlnsNamespace}}}"
            elementFormDefault="qualified" attributeFormDefault="unqualified">
 
-    <xs:complexType name="AbstractTestRequestType">
+    <!-- Element for additional request headers. Note that all headers specified by OpenApi will be
+         provided by attributes of the specific request element.-->
+    <xs:complexType name="RequestHeadersType">
         <xs:sequence>
+            <xs:element name="header" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                    <xs:attribute name="name" type="xs:string"/>
+                    <xs:attribute name="value" type="xs:string"/>
+                </xs:complexType>
+            </xs:element>
             <xs:element name="cookie" minOccurs="0" maxOccurs="unbounded">
                 <xs:complexType>
                     <xs:attribute name="name" type="xs:string" use="required"/>
                     <xs:attribute name="value" type="xs:string" use="required"/>
                 </xs:complexType>
             </xs:element>
-            <xs:element name="header" minOccurs="0" maxOccurs="unbounded">
+        </xs:sequence>
+        <!-- TODO decide whether we can set this from OpenAPI and whether we need to be able to override this -->
+        <xs:attribute name="content-type" type="xs:string"/>
+        <xs:attribute name="accept" type="xs:string"/>
+        <xs:attribute name="version" type="xs:string"/>
+    </xs:complexType>
+
+    <xs:complexType name="AbstractTestApiSendRequestTypeWithoutBody">
+        <xs:sequence>
+            <xs:element name="headers" minOccurs="0" type="RequestHeadersType"/>
+            <xs:element name="extract" minOccurs="0">
                 <xs:complexType>
-                    <xs:attribute name="name" type="xs:string" use="required"/>
-                    <xs:attribute name="value" type="xs:string" use="required"/>
+                    <xs:sequence>
+                        <xs:element name="header" minOccurs="0" maxOccurs="unbounded">
+                            <xs:complexType>
+                                <xs:attribute name="name" type="xs:string" use="required"/>
+                                <xs:attribute name="variable" type="xs:string" use="required"/>
+                            </xs:complexType>
+                        </xs:element>
+                    </xs:sequence>
                 </xs:complexType>
             </xs:element>
         </xs:sequence>
-        <xs:attribute name="resource" type="xs:string"/>
-        <xs:attribute name="schema" type="xs:string" use="optional" default="oas3"/>
-        <xs:attribute name="schema-validation" type="xs:boolean" default="true"/>
-        <xs:attribute name="script" type="xs:string"/>
-        <xs:attribute name="type" default="groovy">
-            <xs:simpleType>
-                <xs:restriction base="xs:string">
-                    <xs:enumeration value="groovy"/>
-                </xs:restriction>
-            </xs:simpleType>
-        </xs:attribute>
+        <xs:attribute name="client" type="xs:string"/>
+        <!-- TODO check if this is really required -->
+        <xs:attribute name="uri" type="xs:string"/>
+        <!-- TODO check if this is really required -->
+        <xs:attribute name="actor" type="xs:string"/>
+        <xs:attribute name="fork" type="xs:boolean"/>
+    </xs:complexType>
+
+    <xs:complexType name="AbstractTestApiSendRequestTypeWithBody">
+        <xs:complexContent>
+            <xs:extension base="AbstractTestApiSendRequestTypeWithoutBody">
+                <xs:sequence>
+                    {{#isMultipart}}
+                    <xs:element name="multipartBody" type="{{operationId}}MultipartBodyType" minOccurs="0" maxOccurs="1"/>
+                    {{/isMultipart}}
+                    {{^isMultipart}}
+                    <xs:element ref="abstract-body" minOccurs="{{#required}}1{{/required}}{{^required}}0{{/required}}">
+                        <xs:annotation>
+                            <xs:documentation>
+                                <b>{{^required}}Optional {{/required}}Body - {{summary}}</b>{{#description}}
+                                <p>{{description}}</p>{{/description}}
+                            </xs:documentation>
+                        </xs:annotation>
+                    </xs:element>
+                    {{/isMultipart}}
+                </xs:sequence>
+                <xs:attribute name="resource" type="xs:string">
+                    <xs:annotation>
+                        <xs:documentation>Deprecated - use resource element at body</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="schema" type="xs:string" use="optional" default="oas3">
+                    <xs:annotation>
+                        <xs:documentation>Deprecated - use body attribute instead</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="schema-validation" type="xs:boolean" default="true">
+                    <xs:annotation>
+                        <xs:documentation>Deprecated - use body attribute instead</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="script" type="xs:string">
+                    <xs:annotation>
+                        <xs:documentation>Deprecated - use body attribute instead</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="type" default="groovy">
+                    <xs:annotation>
+                        <xs:documentation>Deprecated - use body attribute instead</xs:documentation>
+                    </xs:annotation>
+                    <xs:simpleType>
+                        <xs:restriction base="xs:string">
+                            <xs:enumeration value="groovy"/>
+                        </xs:restriction>
+                    </xs:simpleType>
+                </xs:attribute>
+            </xs:extension>
+        </xs:complexContent>
     </xs:complexType>
 
     <xs:element name="abstract-body" abstract="true" />
     <xs:element name="body" substitutionGroup="abstract-body">
         <xs:complexType>
-            <xs:attribute name="content-type" type="xs:string" default="application/json"/>
-            <xs:attribute name="file" type="xs:string" use="required"/>
+            <xs:sequence>
+                <xs:choice>
+                    <xs:element name="payload">
+                        <xs:complexType>
+                            <xs:sequence>
+                                <xs:any namespace="##other" processContents="skip" minOccurs="0" maxOccurs="unbounded"/>
+                            </xs:sequence>
+                        </xs:complexType>
+                    </xs:element>
+                    <xs:element name="data" type="xs:string"/>
+                    <xs:element name="resource">
+                        <xs:complexType>
+                            <xs:attribute name="file" type="xs:string" use="required"/>
+                            <xs:attribute name="charset" type="xs:string"/>
+                        </xs:complexType>
+                    </xs:element>
+                </xs:choice>
+                <xs:element name="element" minOccurs="0" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:attribute name="path" type="xs:string" use="required"/>
+                        <xs:attribute name="value" type="xs:string" use="required"/>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+            <xs:attribute name="schema-validation" type="xs:boolean" default="true"/>
+            <xs:attribute name="name" type="xs:string"/>
+            <xs:attribute name="type" default="xml" type="xs:string"/>
+            <xs:attribute name="data-dictionary" type="xs:string"/>
+            <xs:attribute name="content-type" type="xs:string" default="application/json">
+                <xs:annotation>
+                    <xs:documentation>Deprecated - use content-type on request level</xs:documentation>
+                </xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="file" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>Deprecated - use body resource instead</xs:documentation>
+                </xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="bodyLiteral" substitutionGroup="abstract-body">
         <xs:complexType>
+            <xs:annotation>
+                <xs:documentation>Deprecated - use body payload or data</xs:documentation>
+            </xs:annotation>
             <xs:simpleContent>
                 <xs:extension base="xs:string">
                     <xs:attribute name="content-type" type="xs:string" default="application/json"/>
@@ -143,10 +253,18 @@
                 {{#bodyParams}}
                     <li><emph>Body:</emph> {{description}}</li>
                 {{/bodyParams}}
-                {{#authMethods}}{{#isBasic}}
-                    <li><emph>basicUsername</emph> http basic authentication username</li>
-                    <li><emph>basicPassword</emph> http basic authentication password</li>
-                {{/isBasic}}{{/authMethods}}
+                {{#authMethods}}
+                    {{#isBasicBasic}}
+                    <li><emph>basicAuthUsername</emph> http basic authentication username</li>
+                    <li><emph>basicAuthPassword</emph> http basic authentication password</li>
+                    {{/isBasicBasic}}
+                    {{#isBasicBearer}}
+                        <li><emph>basicAuthBearer</emph> http basic authentication bearer token</li>
+                    {{/isBasicBearer}}
+                    {{#isApiKey}}
+                        <li><emph>apiKeyAuth</emph> apiKey authentication token</li>
+                    {{/isApiKey}}
+                {{/authMethods}}
                 {{#isMultipart}}
                 {{#formParams}}
                     <li><emph>{{paramName}}</emph> {{description}}</li>
@@ -156,24 +274,9 @@
             </xs:documentation>
         </xs:annotation>
         <xs:complexContent>
-            <xs:extension base="AbstractTestRequestType">
+            <xs:extension base="{{#bodyParam}}AbstractTestApiSendRequestTypeWithBody{{/bodyParam}}{{^bodyParam}}AbstractTestApiSendRequestTypeWithoutBody{{/bodyParam}}">
                 <xs:sequence>
-                    {{#isMultipart}}
-                    <xs:element name="multipartBody" type="{{operationId}}MultipartBodyType" minOccurs="0" maxOccurs="1"/>
-                    {{/isMultipart}}
-                    {{^isMultipart}}
-                    {{#bodyParams}}
-                    <xs:element ref="abstract-body" minOccurs="{{#required}}1{{/required}}{{^required}}0{{/required}}">
-                        <xs:annotation>
-                            <xs:documentation>
-                                <b>{{^required}}Optional {{/required}}Body - {{summary}}</b>{{#description}}
-                                <p>{{description}}</p>{{/description}}
-                            </xs:documentation>
-                        </xs:annotation>
-                    </xs:element>
-                    {{/bodyParams}}
-                    {{/isMultipart}}
-                    <xs:element name="response" minOccurs="0" maxOccurs="1" type="ResponseOutputType" />
+                   <xs:element name="response" minOccurs="0" type="ResponseOutputType" />
                 </xs:sequence>
                 {{#queryParams}}
                 <xs:attribute name="{{paramName}}" type="xs:string"
@@ -203,18 +306,44 @@
                 </xs:attribute>
                 {{/formParams}}
                 {{/isMultipart}}
-                {{#authMethods}}{{#isBasic}}
+                {{#authMethods}}
+                    {{#isBasicBasic}}
                 <xs:attribute name="basicUsername" type="xs:string">
                     <xs:annotation>
-                        <xs:documentation>http basic authentication username</xs:documentation>
+                        <xs:documentation>http basic authentication username. Deprecated use basicAuthUsername instead.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="basicPassword" type="xs:string">
                     <xs:annotation>
+                        <xs:documentation>http basic authentication password. Deprecated use basicAuthPassword instead.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="basicAuthUsername" type="xs:string">
+                    <xs:annotation>
+                        <xs:documentation>http basic authentication username</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="basicAuthPassword" type="xs:string">
+                    <xs:annotation>
                         <xs:documentation>http basic authentication password</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
-                {{/isBasic}}{{/authMethods}}
+                    {{/isBasicBasic}}
+                    {{#isBasicBearer}}
+                <xs:attribute name="basicAuthBearer" type="xs:string">
+                    <xs:annotation>
+                        <xs:documentation>http basic authentication bearer token</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                    {{/isBasicBearer}}
+                    {{#isApiKey}}
+                <xs:attribute name="apiKeyAuth" type="xs:string">
+                    <xs:annotation>
+                        <xs:documentation>apiKey authentication key</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                    {{/isApiKey}}
+                {{/authMethods}}
             </xs:extension>
         </xs:complexContent>
     </xs:complexType>

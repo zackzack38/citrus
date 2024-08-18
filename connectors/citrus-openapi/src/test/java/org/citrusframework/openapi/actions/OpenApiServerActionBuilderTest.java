@@ -15,7 +15,7 @@ public class OpenApiServerActionBuilderTest {
 
     @BeforeMethod
     public void beforeMethod() {
-        fixture = new OpenApiServerActionBuilder(mock(Endpoint.class), mock(OpenApiSpecification.class));
+        fixture = new OpenApiServerActionBuilder(mock(Endpoint.class), mock(OpenApiSpecificationSource.class));
     }
 
     @Test

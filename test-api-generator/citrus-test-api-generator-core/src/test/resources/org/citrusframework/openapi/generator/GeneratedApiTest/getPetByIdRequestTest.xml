@@ -2,11 +2,14 @@
     xmlns="http://www.citrusframework.org/schema/testcase"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xmlns:spring="http://www.springframework.org/schema/beans"
+    xmlns:http="http://www.citrusframework.org/schema/http/testcase"
     xmlns:petstore="http://www.citrusframework.org/citrus-test-schema/petstore-api"
     xsi:schemaLocation="http://www.springframework.org/schema/beans
     http://www.springframework.org/schema/beans/spring-beans.xsd
     http://www.citrusframework.org/schema/testcase
     http://www.citrusframework.org/schema/testcase/citrus-testcase.xsd
+    http://www.citrusframework.org/schema/http/testcase
+    http://www.citrusframework.org/schema/http/testcase/citrus-http-testcase.xsd
     http://www.citrusframework.org/citrus-test-schema/petstore-api
     http://www.citrusframework.org/citrus-test-schema/petstore-api/petstore-api.xsd"
 >
@@ -19,6 +22,116 @@
                     <petstore:resource file="org/citrusframework/openapi/generator/GeneratedApiTest/payloads/getPetByIdControlMessage1.json" />
                 </petstore:response>
             </petstore:getPetByIdRequest>
+
+            <!-- payload as xml -->
+            <http:send-request client="simulationRestClient">
+                <http:GET path="/sample12/rest/10002">
+                    <http:body>
+                        <http:payload>
+                            <testRequestMessage>
+                                <text>Hello HttpServer</text>
+                            </testRequestMessage>
+                        </http:payload>
+                    </http:body>
+                </http:GET>
+            </http:send-request>
+
+            <petstore:addPetRequest>
+                <petstore:cookie name="c1" value="v1" />
+                <petstore:cookie name="c2" value="v2" />
+                <petstore:body>
+                    <petstore:payload>
+                        <testRequestMessage>
+                            <text>Hello HttpServer</text>
+                        </testRequestMessage>
+                    </petstore:payload>
+                </petstore:body>
+            </petstore:addPetRequest>
+
+            <http:send-request client="simulationRestClient">
+                <http:GET path="/sample12/rest/10002">
+                    <http:body>
+                        <http:data>
+                            <![CDATA[
+                        <TestRequest>
+                            <Message>Hello World!</Message>
+                        </TestRequest>
+                            ]]>
+                        </http:data>
+                    </http:body>
+                </http:GET>
+            </http:send-request>
+
+            <petstore:addPetRequest>
+                <petstore:cookie name="c1" value="v1" />
+                <petstore:cookie name="c2" value="v2" />
+                <petstore:body>
+                    <petstore:data>
+                        <![CDATA[
+                        <TestRequest>
+                            <Message>Hello World!</Message>
+                        </TestRequest>
+                            ]]>
+                    </petstore:data>
+                </petstore:body>
+            </petstore:addPetRequest>
+
+            <http:send-request client="simulationRestClient">
+                <http:GET path="/sample12/rest/10002">
+                    <http:body>
+                        <http:resource file="xxx"/>
+                    </http:body>
+                </http:GET>
+            </http:send-request>
+
+            <petstore:addPetRequest>
+                <petstore:cookie name="c1" value="v1" />
+                <petstore:cookie name="c2" value="v2" />
+                <petstore:body>
+                    <petstore:resource file="asdfasd"/>
+                </petstore:body>
+            </petstore:addPetRequest>
+
+            <http:send-request client="simulationRestClient">
+                <http:GET path="/sample12/rest/10002">
+                    <http:body>
+                        <http:resource file="xxx"/>
+                    </http:body>
+                </http:GET>
+                <http:extract>
+                    <http:header name="aa" variable="aaa"/>
+                </http:extract>
+            </http:send-request>
+
+            <petstore:addPetRequest>
+                <petstore:cookie name="c1" value="v1" />
+                <petstore:cookie name="c2" value="v2" />
+                <petstore:extract>
+                    <petstore:header name="aa" variable="aaa"/>
+                </petstore:extract>
+                <petstore:body>
+                    <petstore:payload/>
+                </petstore:body>
+            </petstore:addPetRequest>
+
+            <http:send-request client="simulationRestClient">
+                <http:GET path="/sample12/rest/10002">
+                    <http:body>
+                        <http:resource file="asdfasd"/>
+                        <http:element path="aa" value="aa"/>
+                    </http:body>
+                </http:GET>
+            </http:send-request>
+
+            <!-- TODO: check what is script and type doing at request level? what is actor used for? -->
+            <petstore:addPetRequest client="simulationRestClient" fork="true" actor="aaa" script="" type="groovy">
+                <petstore:cookie name="c1" value="v1" />
+                <petstore:cookie name="c2" value="v2" />
+                <petstore:body>
+                    <petstore:resource file="asdfasd"/>
+                    <petstore:element path="aa" value="aa"/>
+                </petstore:body>
+            </petstore:addPetRequest>
         </actions>
     </testcase>
 </spring:beans>

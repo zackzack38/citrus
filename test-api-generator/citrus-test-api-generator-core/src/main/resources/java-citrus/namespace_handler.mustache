@@ -2,6 +2,7 @@
 
 package {{invokerPackage}}.citrus.extension;
 
+import org.citrusframework.openapi.OpenApiSpecification;
 {{#apiInfo}}
 {{#apis}}
 import {{package}}.{{classname}};
@@ -14,13 +15,28 @@ import org.springframework.beans.factory.xml.NamespaceHandlerSupport;
 {{>additionalModelTypeAnnotations}}{{>generatedAnnotation}}{{#discriminator}}{{>typeInfoAnnotation}}{{/discriminator}}{{>xmlAnnotation}}
 public class {{prefix}}NamespaceHandler extends NamespaceHandlerSupport {
 
-    @Override
+    {{#apiInfo}}
+        {{#apis}}
+            {{#-first}}
+    private OpenApiSpecification openApiSpecification = OpenApiSpecification.from(
+        {{classname}}.class.getResource("{{prefix}}_openApi.yaml"));
+            {{/-first}}
+        {{/apis}}
+    {{/apiInfo}}
+
+@Override
     public void init() {
+        {{prefix}}BeanDefinitionParser parser;
+
         {{#apiInfo}}
         {{#apis}}
         {{#operations}}
         {{#operation}}
-        registerBeanDefinitionParser("{{operationId}}Request", new {{prefix}}BeanDefinitionParser({{classname}}.{{operationIdCamelCase}}Request.class));
+        parser = new {{prefix}}BeanDefinitionParser(openApiSpecification, "{{operationId}}", {{classname}}.{{operationIdCamelCase}}RequestActionBuilder.class);
+        parser.setConstructorParameters({{#requiredNonBodyParams}}"{{paramName}}"{{^-last}}, {{/-last}}{{/requiredNonBodyParams}});
+        parser.setNonConstructorParameters({{#optionalParams}}"{{paramName}}"{{^-last}}, {{/-last}}{{/optionalParams}});
+        registerBeanDefinitionParser("{{operationId}}Request", parser);
+
         {{/operation}}
         {{/operations}}
         {{/apis}}

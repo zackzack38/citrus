@@ -225,7 +225,7 @@
                             </configOptions>
                         </configuration>
                     </execution>
-                    <execution>
+                   <!-- TODO: implement for soap <execution>
                         <id>generate-openapi-files-for-soap</id>
                         <phase>compile</phase>
                         <goals>
@@ -244,7 +244,7 @@
                             </configOptions>
                         </configuration>
                     </execution>
-
+-->
                     <!-- For Multipart test-->
                     <execution>
                         <id>generate-openapi-multiparttest-files</id>

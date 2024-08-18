@@ -19,28 +19,40 @@ package org.citrusframework.openapi.generator;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toMap;
+import static org.citrusframework.util.StringUtils.appendSegmentToUrlPath;
 import static org.openapitools.codegen.CliOption.newString;
 
+import io.swagger.v3.core.util.Yaml;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.servers.Server;
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
+import org.citrusframework.exceptions.CitrusRuntimeException;
+import org.openapitools.codegen.CodegenOperation;
+import org.openapitools.codegen.CodegenParameter;
 import org.openapitools.codegen.CodegenType;
 import org.openapitools.codegen.SupportingFile;
 import org.openapitools.codegen.languages.AbstractJavaCodegen;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
 
 @Getter
 @Setter
-public class JavaCitrusCodegen extends AbstractJavaCodegen {
+public class CitrusJavaCodegen extends AbstractJavaCodegen {
 
-    private static final Logger logger = LoggerFactory.getLogger(JavaCitrusCodegen.class);
+    private static final Logger logger = LoggerFactory.getLogger(CitrusJavaCodegen.class);
 
     private static final String ABSTRACT_TEST_REQUEST_JAVA = "AbstractTestRequest.java";
     private static final String API_TYPE_REST = "REST";
@@ -71,7 +83,7 @@ public class JavaCitrusCodegen extends AbstractJavaCodegen {
 
     protected String apiVersion = "1.0.0";
 
-    public JavaCitrusCodegen() {
+    public CitrusJavaCodegen() {
         super();
 
         // the root folder where all files are emitted
@@ -118,7 +130,7 @@ public class JavaCitrusCodegen extends AbstractJavaCodegen {
         // add possibility to set a new value for the properties
         cliOptions.add(
             newString(API_ENDPOINT,
-            "Which http client should be used (default " + httpClient + ")."));
+                "Which http client should be used (default " + httpClient + ")."));
         cliOptions.add(
             newString(API_TYPE,
                 "Specifies the type of API to be generated specify SOAP to generate a SOAP API. By default a REST API will be generated"
@@ -130,19 +142,20 @@ public class JavaCitrusCodegen extends AbstractJavaCodegen {
         );
         cliOptions.add(
             newString(HTTP_PATH_PREFIX,
-            "Add a prefix to http path for all APIs (default " + httpPathPrefix + ")."));
+                "Add a prefix to http path for all APIs (default " + httpPathPrefix + ")."));
         cliOptions.add(
             newString(OPENAPI_SCHEMA,
-            "Which OpenAPI schema should be used (default " + openapiSchema + ")."));
+                "Which OpenAPI schema should be used (default " + openapiSchema + ")."));
         cliOptions.add(
             newString(PREFIX,
-                "Add a prefix before the name of the files. First character should be upper case (default " + apiPrefix + ")."
+                "Add a prefix before the name of the files. First character should be upper case (default "
+                    + apiPrefix + ")."
             )
         );
         cliOptions.add(newString(PREFIX, "The api prefix (default " + apiPrefix + ")."));
         cliOptions.add(
             newString(RESOURCE_FOLDER,
-            "Where the resource files are emitted (default " + resourceFolder + ")."));
+                "Where the resource files are emitted (default " + resourceFolder + ")."));
         cliOptions.add(
             newString(TARGET_XMLNS_NAMESPACE,
                 "Xmlns namespace of the schema (default " + targetXmlnsNamespace + ").")
@@ -192,7 +205,8 @@ public class JavaCitrusCodegen extends AbstractJavaCodegen {
         additionalProperties.put(API_ENDPOINT, httpClient);
 
         if (additionalProperties.containsKey(GENERATED_SCHEMA_FOLDER)) {
-            this.setGeneratedSchemaFolder(additionalProperties.get(GENERATED_SCHEMA_FOLDER).toString());
+            this.setGeneratedSchemaFolder(
+                additionalProperties.get(GENERATED_SCHEMA_FOLDER).toString());
         }
         additionalProperties.put(GENERATED_SCHEMA_FOLDER, generatedSchemaFolder);
 
@@ -229,14 +243,18 @@ public class JavaCitrusCodegen extends AbstractJavaCodegen {
         additionalProperties.put(RESOURCE_FOLDER, resourceFolder);
 
         if (additionalProperties.containsKey(TARGET_XMLNS_NAMESPACE)) {
-            this.setTargetXmlnsNamespace(additionalProperties.get(TARGET_XMLNS_NAMESPACE).toString());
+            this.setTargetXmlnsNamespace(
+                additionalProperties.get(TARGET_XMLNS_NAMESPACE).toString());
         } else {
-            this.targetXmlnsNamespace = format("http://www.citrusframework.org/citrus-test-schema/%s-api", apiPrefix.toLowerCase());
+            this.targetXmlnsNamespace = format(
+                "http://www.citrusframework.org/citrus-test-schema/%s-api",
+                apiPrefix.toLowerCase());
         }
         additionalProperties.put(TARGET_XMLNS_NAMESPACE, targetXmlnsNamespace);
 
         // define different folders where the files will be emitted
-        final String invokerFolder = (sourceFolder + File.separator + invokerPackage).replace(".", File.separator);
+        final String invokerFolder = (sourceFolder + File.separator + invokerPackage).replace(".",
+            File.separator);
         final String citrusFolder = invokerFolder + File.separator + "citrus";
         final String extensionFolder = citrusFolder + File.separator + "extension";
         final String springFolder = invokerFolder + File.separator + "spring";
@@ -252,6 +270,31 @@ public class JavaCitrusCodegen extends AbstractJavaCodegen {
         }
 
         addDefaultSupportingFiles(citrusFolder, extensionFolder, springFolder);
+
+        writeApiToResourceFolder();
+    }
+
+    private void writeApiToResourceFolder() {
+        String apiPackage = apiPackage();
+
+        String directoryPath = appendSegmentToUrlPath(getOutputDir() , getResourceFolder());
+        directoryPath = appendSegmentToUrlPath(directoryPath , apiPackage.replace('.', File.separatorChar));
+
+        String filename = getApiPrefix() +"_openApi.yaml";
+
+        File directory = new File(directoryPath);
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
+
+        File file = new File(directory, filename);
+
+        try (FileWriter writer = new FileWriter(file)) {
+            String yamlContent = Yaml.pretty(openAPI);
+            writer.write(yamlContent);
+        } catch (IOException e) {
+            throw new CitrusRuntimeException("Unable to write OpenAPI to resource folder: "+file.getAbsolutePath());
+        }
     }
 
     @Override
@@ -271,8 +314,10 @@ public class JavaCitrusCodegen extends AbstractJavaCodegen {
     }
 
     private void addRestSupportingFiles(final String citrusFolder, String schemaFolder) {
-        supportingFiles.add(new SupportingFile("schema.mustache", schemaFolder, apiPrefix.toLowerCase() + "-api.xsd"));
-        supportingFiles.add(new SupportingFile("test_base.mustache", citrusFolder, apiPrefix + ABSTRACT_TEST_REQUEST_JAVA));
+        supportingFiles.add(new SupportingFile("schema.mustache", schemaFolder,
+            apiPrefix.toLowerCase() + "-api.xsd"));
+        supportingFiles.add(new SupportingFile("test_base.mustache", citrusFolder,
+            apiPrefix + ABSTRACT_TEST_REQUEST_JAVA));
     }
 
     private void addSoapSupportingFiles(final String citrusFolder, String schemaFolder) {
@@ -280,15 +325,69 @@ public class JavaCitrusCodegen extends AbstractJavaCodegen {
         apiTemplateFiles().remove("api.mustache");
         apiTemplateFiles().put("api_soap.mustache", ".java");
 
-        supportingFiles.add(new SupportingFile("schema_soap.mustache", schemaFolder, apiPrefix.toLowerCase() + "-api.xsd"));
-        supportingFiles.add(new SupportingFile("api_soap.mustache", citrusFolder, apiPrefix + ABSTRACT_TEST_REQUEST_JAVA));
-        supportingFiles.add(new SupportingFile("test_base_soap.mustache", citrusFolder, apiPrefix + ABSTRACT_TEST_REQUEST_JAVA));
+        supportingFiles.add(new SupportingFile("schema_soap.mustache", schemaFolder,
+            apiPrefix.toLowerCase() + "-api.xsd"));
+        supportingFiles.add(new SupportingFile("api_soap.mustache", citrusFolder,
+            apiPrefix + ABSTRACT_TEST_REQUEST_JAVA));
+        supportingFiles.add(new SupportingFile("test_base_soap.mustache", citrusFolder,
+            apiPrefix + ABSTRACT_TEST_REQUEST_JAVA));
     }
 
-    private void addDefaultSupportingFiles(final String citrusFolder, final String extensionFolder, final String springFolder) {
-        supportingFiles.add(new SupportingFile("bean_configuration.mustache", springFolder, apiPrefix + "BeanConfiguration.java"));
-        supportingFiles.add(new SupportingFile("bean_definition_parser.mustache", citrusFolder, apiPrefix + "BeanDefinitionParser.java"));
-        supportingFiles.add(new SupportingFile("namespace_handler.mustache", extensionFolder, apiPrefix + "NamespaceHandler.java"));
-        supportingFiles.add(new SupportingFile("api-model.mustache", resourceFolder, apiPrefix.toLowerCase() + "-api-model.csv"));
+    private void addDefaultSupportingFiles(final String citrusFolder, final String extensionFolder,
+        final String springFolder) {
+        supportingFiles.add(new SupportingFile("bean_configuration.mustache", springFolder,
+            apiPrefix + "BeanConfiguration.java"));
+        supportingFiles.add(new SupportingFile("bean_definition_parser.mustache", citrusFolder,
+            apiPrefix + "BeanDefinitionParser.java"));
+        supportingFiles.add(new SupportingFile("namespace_handler.mustache", extensionFolder,
+            apiPrefix + "NamespaceHandler.java"));
+        supportingFiles.add(new SupportingFile("api-model.mustache", resourceFolder,
+            apiPrefix.toLowerCase() + "-api-model.csv"));
+    }
+
+    @Override
+    public CodegenOperation fromOperation(String path,
+        String httpMethod,
+        Operation operation,
+        List<Server> servers) {
+        CustomCodegenOperation customOperation = new CustomCodegenOperation();
+
+        // Perform the usual processing of the operation
+        CodegenOperation op = super.fromOperation(path, httpMethod, operation, servers);
+
+        copyFields(CodegenOperation.class, op, customOperation);
+
+        // Copy the base properties to your custom operation
+      //  BeanUtils.copyProperties(op, customOperation);
+
+        customOperation.requiredNonBodyParams = customOperation.requiredParams.stream().filter(param -> !param.isBodyParam).toList();
+        // Add custom logic here if necessary
+
+        return customOperation;
+    }
+
+    private static void copyFields(Class<?> clazz, Object source, Object target) {
+
+        Field[] fields = clazz.getDeclaredFields();
+
+        for (Field field : fields) {
+            try {
+                field.setAccessible(true);
+
+                field.setAccessible(true);
+                field.set(target, field.get(source));
+            } catch (IllegalAccessException e) {
+                // Handle exceptions (e.g., logging), or ignore fields that don't exist in target
+            }
+        }
+    }
+
+    private class CustomCodegenOperation extends CodegenOperation {
+        public List<CodegenParameter> requiredNonBodyParams;
+
+        public CustomCodegenOperation() {
+            super();
+            requiredNonBodyParams = new ArrayList<>();
+        }
     }
 }

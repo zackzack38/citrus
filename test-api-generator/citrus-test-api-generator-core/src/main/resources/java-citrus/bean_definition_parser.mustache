@@ -2,6 +2,11 @@
 
 package {{invokerPackage}}.citrus;
 
+import static org.citrusframework.openapi.generator.TestApiUtils.mapXmlAttributeNameToJavaPropertyName;
+import static org.springframework.core.Conventions.attributeNameToPropertyName;
+
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,11 +14,20 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
+import org.citrusframework.actions.SendMessageAction;
+import org.citrusframework.config.xml.AbstractSendMessageActionFactoryBean;
+import org.citrusframework.http.actions.HttpClientRequestActionBuilder;
+import org.citrusframework.http.config.xml.HttpSendRequestActionParser;
+import org.citrusframework.http.message.HttpMessage;
+import org.citrusframework.http.message.HttpMessageBuilder;
+import org.citrusframework.openapi.OpenApiSpecification;
+import org.citrusframework.openapi.actions.OpenApiClientRequestActionBuilder.OpenApiClientRequestMessageBuilder;
+import org.citrusframework.openapi.actions.OpenApiSpecificationSource;
+import org.citrusframework.openapi.generator.TestApiClientRequestActionBuilder;
+import org.citrusframework.http.actions.HttpClientRequestActionBuilder.HttpMessageBuilderSupport;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionBuilder;
-import org.springframework.beans.factory.xml.BeanDefinitionParser;
 import org.springframework.beans.factory.xml.ParserContext;
-import org.springframework.core.Conventions;
 import org.springframework.util.Assert;
 import org.springframework.util.xml.DomUtils;
 import org.w3c.dom.Attr;
@@ -21,7 +35,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 
 {{>additionalModelTypeAnnotations}}{{>generatedAnnotation}}{{#discriminator}}{{>typeInfoAnnotation}}{{/discriminator}}{{>xmlAnnotation}}
-public class {{prefix}}BeanDefinitionParser implements BeanDefinitionParser {
+public class {{prefix}}BeanDefinitionParser extends HttpSendRequestActionParser {
 
     private static final String COOKIE = "cookie";
     private static final String HEADER = "header";
@@ -45,14 +59,26 @@ public class {{prefix}}BeanDefinitionParser implements BeanDefinitionParser {
     private static final String SQL = "sql";
     private static final String COLUMN = "column";
     private static final String VARIABLE = "variable";
-    // new
     private static final String SCHEMA = "schema";
-    // new
     private static final String SCHEMA_VALIDATION = "schemaValidation";
 
-    private final Class<?> beanClass;
+    private final Class<? extends TestApiClientRequestActionBuilder> beanClass;
 
-    public {{prefix}}BeanDefinitionParser(Class<?> beanClass) {
+    private final OpenApiSpecification openApiSpecification;
+
+    private String operationId;
+
+    private BeanDefinitionBuilder beanDefinitionBuilder;
+
+    private List<String> constructorParameters;
+
+    private List<String> nonConstructorParameters;
+
+    public {{prefix}}BeanDefinitionParser(OpenApiSpecification openApiSpecification,
+        String operationId,
+        Class<? extends TestApiClientRequestActionBuilder> beanClass) {
+        this.openApiSpecification = openApiSpecification;
+        this.operationId = operationId;
         this.beanClass = beanClass;
     }
 
@@ -66,24 +92,102 @@ public class {{prefix}}BeanDefinitionParser implements BeanDefinitionParser {
      */
     @Override
     public BeanDefinition parse(Element element, ParserContext parserContext) {
-        BeanDefinitionBuilder builder = BeanDefinitionBuilder.genericBeanDefinition(beanClass);
-        retrieveRootNodeAttributes(element, builder);
-        retrieveOptionalNodeAttributes(element, REQUEST_BODY, builder);
-        retrieveTextContentAndNodeAttributes(element, REQUEST_BODY_LITERAL, builder);
-        retrieveOptionalNodeAttributes(element, RESPONSE, builder);
-        retrieveParamNodeData(element, builder, COOKIE);
-        retrieveParamNodeData(element, builder, HEADER);
-        retrieveParamNodeData(element, builder, SOAP_HEADER);
-        retrieveParamNodeData(element, builder, MIME_HEADER);
-        retrieveOptionalNodeAttributes(element, SCHEMA, builder);
-        retrieveOptionalNodeAttributes(element, SCHEMA_VALIDATION, builder);
-        retrieveOptionalMultipartElements(element, builder);
-        retrieveResponseNodeData(element, builder);
-        builder.addPropertyValue("name", element.getTagName());
-        return builder.getBeanDefinition();
+        super.parse(element, parserContext);
+
+        BeanDefinitionBuilder actionBuilder = BeanDefinitionBuilder.genericBeanDefinition(beanClass);
+        actionBuilder.addConstructorArgValue(openApiSpecification);
+        for (String parameterName : constructorParameters) {
+            actionBuilder.addConstructorArgValue(element.getAttribute(parameterName));
+        }
+
+        for (String parameterName : nonConstructorParameters) {
+            Attr attribute = element.getAttributeNode(parameterName);
+            if (attribute != null) {
+                String propertyName = attributeNameToPropertyName(attribute.getLocalName());
+                actionBuilder.addPropertyValue(mapXmlAttributeNameToJavaPropertyName(propertyName), attribute.getValue());
+            }
+        }
+
+        beanDefinitionBuilder.addConstructorArgValue(actionBuilder.getBeanDefinition());
+        beanDefinitionBuilder.addPropertyReference("endpoint", "{{apiEndpoint}}");
+
+        /* retrieveRootNodeAttributes(element, beanDefinitionBuilder);
+        retrieveOptionalNodeAttributes(element, REQUEST_BODY, beanDefinitionBuilder);
+        retrieveTextContentAndNodeAttributes(element, REQUEST_BODY_LITERAL, beanDefinitionBuilder);
+        retrieveOptionalNodeAttributes(element, RESPONSE, beanDefinitionBuilder);
+        retrieveParamNodeData(element, beanDefinitionBuilder, COOKIE);
+        retrieveParamNodeData(element, beanDefinitionBuilder, HEADER);
+        retrieveParamNodeData(element, beanDefinitionBuilder, SOAP_HEADER);
+        retrieveParamNodeData(element, beanDefinitionBuilder, MIME_HEADER);
+        retrieveOptionalNodeAttributes(element, SCHEMA, beanDefinitionBuilder);
+        retrieveOptionalNodeAttributes(element, SCHEMA_VALIDATION, beanDefinitionBuilder);
+        retrieveOptionalMultipartElements(element, beanDefinitionBuilder);
+        retrieveResponseNodeData(element, beanDefinitionBuilder);
+        beanDefinitionBuilder.addPropertyValue("name", element.getTagName());
+*/
+        return beanDefinitionBuilder.getBeanDefinition();
     }
 
-    private void retrieveOptionalMultipartElements(Element element, BeanDefinitionBuilder builder) {
+    @Override
+    protected BeanDefinitionBuilder parseComponent(Element element, ParserContext parserContext) {
+        beanDefinitionBuilder =  BeanDefinitionBuilder.genericBeanDefinition({{prefix}}RequestActionBuilderFactoryBean.class);
+        return beanDefinitionBuilder;
+    }
+
+    @Override
+    protected void validateEndpointConfiguration(Element element) {
+        // skip validation, as we support endpoint injection
+    }
+
+    @Override
+    protected Element getHeadersElement(Element requestElement) {
+        Element headers = DomUtils.getChildElementByTagName((Element) requestElement.getParentNode(), "headers");
+        return headers;
+    }
+    @Override
+    protected HttpMessageBuilder createMessageBuilder(HttpMessage httpMessage) {
+        return new OpenApiClientRequestMessageBuilder(httpMessage,
+            new OpenApiSpecificationSource(openApiSpecification), operationId);
+    }
+
+    public void setConstructorParameters(String...constructorParameters) {
+        this.constructorParameters = constructorParameters != null ? Arrays.asList(constructorParameters) : Collections.emptyList();
+    }
+
+    public void setNonConstructorParameters(String...nonConstructorParameters) {
+        this.nonConstructorParameters = nonConstructorParameters != null ? Arrays.asList(nonConstructorParameters) : Collections.emptyList();;
+    }
+
+    public static class {{prefix}}RequestActionBuilderFactoryBean extends
+        AbstractSendMessageActionFactoryBean<SendMessageAction, HttpMessageBuilderSupport, HttpClientRequestActionBuilder> {
+
+        private TestApiClientRequestActionBuilder builder;
+
+        public {{prefix}}RequestActionBuilderFactoryBean(TestApiClientRequestActionBuilder builder) {
+            this.builder = builder;
+        }
+
+        public void setBuilder(TestApiClientRequestActionBuilder builder) {
+            this.builder = builder;
+        }
+
+        @Override
+        public SendMessageAction getObject() throws Exception {
+            return builder.build();
+        }
+
+        @Override
+        public Class<?> getObjectType() {
+            return SendMessageAction.class;
+        }
+
+        @Override
+        public HttpClientRequestActionBuilder getBuilder() {
+            return builder;
+        }
+    }
+
+   /* private void retrieveOptionalMultipartElements(Element element, BeanDefinitionBuilder builder) {
         var multipartBodyElement = DomUtils.getChildElementByTagName(element, MULTIPART_BODY);
         if (multipartBodyElement != null) {
             var multipartBodyChildElements = DomUtils.getChildElements(multipartBodyElement);
@@ -101,7 +205,9 @@ public class {{prefix}}BeanDefinitionParser implements BeanDefinitionParser {
             Attr attribute = (Attr) attributes.item(x);
             String propertyName = Conventions.attributeNameToPropertyName(attribute.getLocalName());
             Assert.state(StringUtils.isNotBlank(propertyName), "Illegal property name returned, it must not be null or empty.");
-            builder.addPropertyValue(propertyName, attribute.getValue());
+            if (!requiredParameterNames.contains(propertyName)) {
+                builder.addPropertyValue(TestApiUtils.mapXmlAttributeNameToJavaPropertyName(propertyName), attribute.getValue());
+            }
         }
     }
 
@@ -201,5 +307,5 @@ public class {{prefix}}BeanDefinitionParser implements BeanDefinitionParser {
             builder.addPropertyValue(RESPONSE_VARIABLE, responseVariable);
             builder.addPropertyValue(RESPONSE_VALUE, responseValue);
         }
-    }
+    }*/
 }
